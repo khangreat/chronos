@@ -15,9 +15,9 @@ Python needed. Your archive stays in the `data` folder beside it. (Windows may
 say "Windows protected your PC" because the program isn't signed: *More info →
 Run anyway*.)
 
-Every push builds the zip on Windows (Actions → *Windows portable*); pushing a
-version tag such as `v0.35.0` publishes it as a Release — only after the tests
-and both programs' self-tests pass on Windows.
+Every push builds the zip on Windows (Actions → *Windows portable*). When `main`
+carries a new version number, it is published as a Release automatically —
+only after the tests and both programs' self-tests pass on Windows.
 
 From source: `pip install ./vendor/bridgespec . PySide6`, then `chronos gui`.
 

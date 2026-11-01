@@ -1,6 +1,6 @@
-# Builds the portable Windows zip on every push, and publishes it as a Release
-# when a version tag (v0.35.0, …) is pushed — only if the tests and the built
-# programs' self-tests pass on Windows.
+# Builds the portable Windows zip on every push. Publishes it as a Release when
+# main carries a new version (chronos/__init__.py) or a version tag is pushed —
+# only if the tests and the built programs' self-tests pass on Windows.
 
 name: Windows portable
 
@@ -87,19 +87,37 @@ jobs:
 
   release:
     name: Publish the Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A version tag, or main carrying a version that has no Release yet
+    # (so a release needs only a version bump — no tag to push).
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     needs: [test, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Is this version released yet?
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v$(python3 -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('chronos/__init__.py').read()).group(1))")"
+          echo "tag=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "$v" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"; echo "$v is already released"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"; echo "$v will be released"
+          fi
       - uses: actions/download-artifact@v4
+        if: steps.v.outputs.new == 'true'
         with:
           name: Chronos-Windows-portable
       - uses: softprops/action-gh-release@v2
+        if: steps.v.outputs.new == 'true'
         with:
-          name: Chronos ${{ github.ref_name }}
+          tag_name: ${{ steps.v.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Chronos ${{ steps.v.outputs.tag }}
           body_path: packaging/windows/release-body.md
           files: Chronos-*-Windows-portable.zip
           fail_on_unmatched_files: true
