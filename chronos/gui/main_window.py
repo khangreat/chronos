@@ -520,7 +520,9 @@ class MainWindow(QMainWindow):
     def _dropped_paths(mime):
         if not mime.hasUrls():
             return []
-        return [u.toLocalFile() for u in mime.urls() if u.isLocalFile() and u.toLocalFile()]
+        from pathlib import Path
+        return [str(Path(u.toLocalFile())) for u in mime.urls()        # C:\… on Windows
+                if u.isLocalFile() and u.toLocalFile()]
 
     def dragEnterEvent(self, e) -> None:
         if self._dropped_paths(e.mimeData()):
