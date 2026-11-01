@@ -24,7 +24,8 @@ class PageFetcher:
 
     def fetch(self, url: str) -> ExtractedPage:
         """Fetch + extract. Raises NetworkDisabled if page_fetch isn't enabled."""
-        return extract_content(self.fetch_raw(url), url)
+        return extract_content(self.fetch_raw(url), url,
+                               getattr(self.policy.settings, "prefer_extractor", "auto"))
 
     def fetch_raw(self, url: str) -> str:
         """Fetch the raw HTML text. Gated by page_fetch."""

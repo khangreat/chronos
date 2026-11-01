@@ -30,9 +30,9 @@ class ChromiumImporter(BrowserImporter):
         return home / ".config"
 
     def default_paths(self) -> List[Path]:
-        base = self._config_root() / self.vendor_subdir
-        candidates = [base / "Default/Bookmarks", base / "Bookmarks"]
-        return [c for c in candidates if c.exists()]
+        from .profiles import discover
+        return [p.bookmarks for p in discover()
+                if p.family == "chromium" and p.browser == self.name and p.bookmarks]
 
     def parse(self, source: Path) -> List[Bookmark]:
         data = json.loads(Path(source).read_text(encoding="utf-8"))

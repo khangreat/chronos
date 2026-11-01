@@ -91,8 +91,40 @@ def _checks(work: Path, gui: bool) -> Tuple[List[Tuple[str, Callable[[], str]]],
             return "feedparser not installed (optional when run from source)"
         return f"feedparser {feedparser.__version__}"
 
-    checks = [("version", version), ("feeds", feeds), ("database", database), ("search", search),
-              ("exports", exports), ("translations", translations),
+    def extractor():
+        from .web.extract import available_extractors, extract_content
+        have = available_extractors()
+        if getattr(sys, "frozen", False) and "trafilatura" not in have:
+            raise AssertionError("Trafilatura not bundled")
+        page = ("<html><body><nav>Home About Login Shop Subscribe</nav><div><p>"
+                + "Brahui is a Dravidian language spoken in Balochistan. " * 6
+                + "</p><p>" + "Verbs agree with the subject in person and number. " * 6
+                + "</p></div><footer>Copyright privacy terms</footer></body></html>")
+        best = extract_content(page, "https://example.org/a")
+        if "Dravidian" not in best.text:
+            raise AssertionError("the article text wasn't found")
+        if "trafilatura" in have and "Login" in best.text:
+            raise AssertionError("menus were kept")
+        return ", ".join(have)
+
+    def anything():
+        import zipfile
+        z = work / "takeout.zip"
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("Takeout/Chrome/Bookmarks.html",
+                        "<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="
+                        "\"https://example.org/kept\" ADD_DATE=\"1700000000\">Kept</A></DL>")
+            zf.writestr("Takeout/Chrome/BrowserHistory.json",
+                        '{"Browser History":[{"url":"https://example.org/visited",'
+                        '"title":"Visited","time_usec":1700000000000000}]}')
+        rep = state["ctx"].universal.import_paths([z])
+        if rep.found != 2:
+            raise AssertionError(rep.text())
+        return "Takeout zip: bookmarks and history read"
+
+    checks = [("version", version), ("feeds", feeds), ("page text", extractor), ("database", database), ("search", search),
+              ("exports", exports), ("import anything", anything),
+              ("translations", translations),
               ("browser extension", extension_files)]
 
     if gui:

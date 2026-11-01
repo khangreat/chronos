@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         self._worker = None
         self.setWindowTitle(f"Chronos Archive {__version__}")
         self.resize(1180, 760)
+        self.setAcceptDrops(True)        # drop any export, folder or zip to bring it in
 
         root = QWidget()
         root.setObjectName("Root")
@@ -514,6 +515,35 @@ class MainWindow(QMainWindow):
         act(m, "action.about", self._show_about)
 
     # -- import / capture / export ----------------------------------------- #
+    # -- drop anything onto the window ------------------------------------- #
+    @staticmethod
+    def _dropped_paths(mime):
+        if not mime.hasUrls():
+            return []
+        return [u.toLocalFile() for u in mime.urls() if u.isLocalFile() and u.toLocalFile()]
+
+    def dragEnterEvent(self, e) -> None:
+        if self._dropped_paths(e.mimeData()):
+            e.acceptProposedAction()
+            self.statusBar().showMessage("Drop to bring it into your archive", 3000)
+
+    def dragMoveEvent(self, e) -> None:
+        if self._dropped_paths(e.mimeData()):
+            e.acceptProposedAction()
+
+    def dropEvent(self, e) -> None:
+        paths = self._dropped_paths(e.mimeData())
+        if paths:
+            e.acceptProposedAction()
+            self.import_paths(paths)
+
+    def import_paths(self, paths) -> None:
+        """Bring in any files, folders or archives (also used by drag and drop)."""
+        n = len(paths)
+        self._run_task(lambda c, ps=list(paths): c.universal.import_paths(ps).text(),
+                       f"Reading {n} item{'s' if n != 1 else ''} you dropped\u2026",
+                       "Brought in")
+
     def _open_import(self) -> None:
         from .import_dialog import ImportDialog
         dlg = ImportDialog(self.ctx, self)

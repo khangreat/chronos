@@ -313,3 +313,19 @@ def _v9(conn: sqlite3.Connection) -> None:
                 OR url LIKE '%youtube.com/live/%' OR url LIKE '%vimeo.com/%');
         """
     )
+
+
+# --------------------------------------------------------------------------- #
+# v10 — find items by address quickly. Every import looks items up by URL (and
+# by browser + URL); without these, a Takeout's years of history took minutes.
+# Indexes only: no data changes.
+# --------------------------------------------------------------------------- #
+@migration(10)
+def _v10(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_bm_url ON bookmarks(url);
+        CREATE INDEX IF NOT EXISTS idx_bm_browser_url ON bookmarks(browser, url);
+        CREATE INDEX IF NOT EXISTS idx_acq_lookup ON acquisitions(bookmark_id, method);
+        """
+    )

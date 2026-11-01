@@ -60,7 +60,7 @@ class ImportDialog(QDialog):
         groups: Dict[str, list] = {}
         for s in self.sources.values():
             groups.setdefault(s.group, []).append(s)
-        for g in ("browsers", "files", "social", "packages"):
+        for g in ("anything", "browsers", "files", "social", "packages"):
             self._section(GROUP_TITLES[g])
             if g == "browsers" and not groups.get(g):
                 note = QLabel("No browser profiles were found on this computer. "
@@ -112,7 +112,12 @@ class ImportDialog(QDialog):
             b = QPushButton("Choose file…")
             b.clicked.connect(lambda _=False, sid=s.id: self._choose(sid, folder=False))
             btns.append(b)
-        if s.pick in ("folder", "either"):
+        if s.pick == "many":
+            b = QPushButton("Choose files…")
+            b.clicked.connect(lambda _=False, sid=s.id: self._choose(sid, folder=False,
+                                                                     many=True))
+            btns.append(b)
+        if s.pick in ("folder", "either", "many"):
             b = QPushButton("Choose folder…" if s.pick == "folder" else "Folder…")
             b.clicked.connect(lambda _=False, sid=s.id: self._choose(sid, folder=True))
             btns.append(b)
@@ -126,8 +131,15 @@ class ImportDialog(QDialog):
         self._lay.addWidget(row)
 
     # -- actions ------------------------------------------------------------ #
-    def _choose(self, sid: str, folder: bool) -> None:
+    def _choose(self, sid: str, folder: bool, many: bool = False) -> None:
         s = self.sources[sid]
+        if many and not folder:
+            paths, _ = QFileDialog.getOpenFileNames(
+                self, f"{s.name}: choose files (all parts of a Takeout together)", "",
+                f"{s.file_filter};;All files (*)")
+            if paths:
+                self.run_source(sid, paths)
+            return
         if folder:
             path = QFileDialog.getExistingDirectory(self, f"{s.name}: choose folder")
         else:
@@ -149,7 +161,7 @@ class ImportDialog(QDialog):
         for b in self._buttons.get(sid, []):
             b.setEnabled(not busy)
 
-    def run_source(self, sid: str, path: Optional[str]) -> None:
+    def run_source(self, sid: str, path) -> None:
         s = self.sources[sid]
         self._busy(sid, True)
         self._set_status(sid, "Importing…")
@@ -161,7 +173,7 @@ class ImportDialog(QDialog):
 
         def finish_err(msg: str) -> None:
             self._busy(sid, False)
-            self._set_status(sid, f"Couldn’t import this file. {msg}", error=True)
+            self._set_status(sid, f"Couldn’t import that. {msg}", error=True)
 
         fn = (lambda ctx, s=s, p=path: s.run(ctx, p))
         if self._sync:

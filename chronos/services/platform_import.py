@@ -10,6 +10,7 @@ persist, so the chronology of how an item kept appearing is preserved.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,20 +72,71 @@ class PlatformImportService:
             parser_version=PARSER_VERSION,
             retained_path=str(path) if retain else None)
         fallback_ts = int(path.stat().st_mtime) if path.exists() else 0
+        new, acq = self._store_reddit(items, pkg_id, fallback_ts)
+        self.ctx.storage.update_package_count(pkg_id, len(items))
+        return ImportResult("reddit", pkg_id, seen, len(items), new, acq)
+
+    def import_reddit_items(self, items, label: str = "reddit.com") -> ImportResult:
+        """Reddit items read in the browser (extension) or saved as .json from
+        reddit.com. Items marked "fill" complete ones from the data download."""
+        import hashlib
+        import time
+        items = list(items)
+        if not items:
+            raise ValueError("No Reddit posts or comments in that.")
+        sha = hashlib.sha256("|".join(sorted(f"{i.role}:{i.platform_id}" for i in items))
+                             .encode()).hexdigest()
+        pkg_id, seen = self.ctx.provenance.register_package(
+            "reddit", source_filename=label, archive_hash=sha,
+            parser_version=PARSER_VERSION, retained_path=None)
+        new, acq = self._store_reddit(items, pkg_id, int(time.time()))
+        self.ctx.storage.update_package_count(pkg_id, len(items))
+        return ImportResult("reddit", pkg_id, seen, len(items), new, acq)
+
+    def reddit_needing_text(self, limit: int = 20000):
+        """Reddit fullnames (t3_abc, t1_def) of items from the data download that
+        have no text yet — for the extension to fill in."""
+        rows = self.ctx.storage.conn.execute(
+            """SELECT DISTINCT a.detail, b.kind FROM acquisitions a
+               JOIN bookmarks b ON b.id = a.bookmark_id
+               WHERE a.source = 'reddit' AND (b.page_text IS NULL OR b.page_text = '')
+               AND a.detail IS NOT NULL LIMIT ?""", (limit,)).fetchall()
+        out = []
+        for r in rows:
+            try:
+                d = json.loads(r["detail"])
+            except (TypeError, ValueError):
+                continue
+            pid = (d.get("id") or "").strip()
+            if pid and "_" not in pid:
+                out.append(("t1_" if r["kind"] == "social_comment" else "t3_") + pid)
+            elif pid:
+                out.append(pid)
+        return sorted(set(out))
+
+    def _store_reddit(self, items, pkg_id, fallback_ts):
         new = acq = 0
         method = {"post": "imported", "comment": "imported",
                   "saved_post": "platform_saved", "saved_comment": "platform_saved",
                   "upvoted": "platform_liked"}
         comments = []
         for it in items:
-            kind = ("social_comment" if it.role in ("comment", "saved_comment")
+            # "fill" items complete ones already here (titles and text that
+            # Reddit's data download leaves out); new ones count as saved.
+            fill = it.role.startswith("fill_")
+            role = {"fill_post": "saved_post", "fill_comment": "saved_comment"}.get(
+                it.role, it.role)
+            kind = ("social_comment" if role in ("comment", "saved_comment")
                     else "social_post")
+            author = getattr(it, "author", "") or ""
+            byline = f"u/{author}" if author and author != "[deleted]" else None
             bm = self.ctx.storage.get_by_url(it.url)
             if bm is None:
                 bid, _ = self.ctx.storage.upsert_bookmark(Bookmark(
                     url=it.url, title=it.title,
                     date_added=it.timestamp or fallback_ts, browser="Reddit",
-                    site_name="Reddit", kind=kind, page_text=it.text or None))
+                    site_name="Reddit", kind=kind, page_text=it.text or None,
+                    byline=byline, published_ts=it.timestamp))
                 new += 1
             else:
                 bid = bm.id
@@ -93,10 +145,14 @@ class PlatformImportService:
                     self.ctx.storage.conn.execute(
                         "UPDATE bookmarks SET page_text=?, title=? WHERE id=?",
                         (it.text, it.title, bid))
-                    self.ctx.storage.conn.commit()
-            if self.ctx.provenance.record(
-                    bid, method[it.role], source="reddit", package_id=pkg_id,
-                    detail={"id": it.platform_id, "role": it.role}):
+                if byline and not bm.byline:
+                    self.ctx.storage.conn.execute(
+                        "UPDATE bookmarks SET byline=?, published_ts=COALESCE(published_ts, ?) "
+                        "WHERE id=?", (byline, it.timestamp, bid))
+                self.ctx.storage.conn.commit()
+            if (not fill or bm is None) and self.ctx.provenance.record(
+                    bid, method[role], source="reddit", package_id=pkg_id,
+                    detail={"id": it.platform_id, "role": role}):
                 acq += 1
             if it.subreddit:
                 cur = self.ctx.storage.get(bid).tags or []
@@ -123,8 +179,7 @@ class PlatformImportService:
                 self.ctx.resources.relate(bid, thread.id, "reply_to")
             else:
                 self._link_to_submission(bid, it.url)
-        self.ctx.storage.update_package_count(pkg_id, len(items))
-        return ImportResult("reddit", pkg_id, seen, len(items), new, acq)
+        return new, acq
 
     @staticmethod
     def _submission_id(url: str):

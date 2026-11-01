@@ -19,6 +19,14 @@ ICON = str(HERE / "chronos.ico") if WIN else None
 datas = collect_data_files("chronos")           # translations, icon, extension files
 hidden = (collect_submodules("chronos") + collect_submodules("bridgespec")
           + ["PySide6.QtSvg"])                  # the theme draws arrows/ticks as SVG
+# Trafilatura finds the article in a saved page (leaves out menus, ads, footers);
+# its helpers carry word lists and settings as data files.
+for pkg in ("trafilatura", "justext", "courlan", "htmldate"):
+    try:
+        datas += collect_data_files(pkg)
+        hidden += collect_submodules(pkg)
+    except Exception:
+        pass
 excludes = ["tkinter", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
             "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml", "PySide6.QtMultimedia",
             "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtPdf"]

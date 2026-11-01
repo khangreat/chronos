@@ -25,9 +25,10 @@ class ProvenanceService:
     # -- acquisitions ------------------------------------------------------- #
     def record(self, bookmark_id: int, method: str, source: Optional[str] = None,
                acquired_at: Optional[int] = None, package_id: Optional[int] = None,
-               detail: Optional[dict] = None) -> Optional[int]:
+               detail: Optional[dict] = None, commit: bool = True) -> Optional[int]:
         """Record an acquisition, idempotent per (bookmark, method, source,
-        package). Returns the new id, or None if it already existed."""
+        package). Returns the new id, or None if it already existed.
+        `commit=False` lets a big import commit once at the end."""
         if method not in METHODS:
             raise ValueError(f"Unknown acquisition method: {method}")
         if self.ctx.storage.acquisition_exists(bookmark_id, method, source,
@@ -35,7 +36,7 @@ class ProvenanceService:
             return None
         return self.ctx.storage.add_acquisition(
             bookmark_id, method, source, acquired_at, package_id,
-            json.dumps(detail, ensure_ascii=False) if detail else None)
+            json.dumps(detail, ensure_ascii=False) if detail else None, commit=commit)
 
     def record_for_urls(self, urls, method: str, source=None, package_id=None,
                         detail_by_url=None) -> int:

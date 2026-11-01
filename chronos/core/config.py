@@ -120,8 +120,9 @@ class Settings:
     allow_wayback: bool = False
     allow_page_fetch: bool = False
     allow_feeds: bool = False
-    # Content extraction extras are optional and user-installed; never auto-pip.
-    prefer_extractor: str = "builtin"  # builtin | trafilatura | readability
+    # Which page-text extractor to use. "auto" = the best this copy has (the
+    # Windows build includes Trafilatura); never auto-installed.
+    prefer_extractor: str = "auto"  # auto | builtin | trafilatura | readability
     theme: str = "system"
     language: str = "en"  # UI locale (en, ar, brh, …); RTL locales flip layout
     text_size: str = "default"  # small | default | large | larger

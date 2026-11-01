@@ -27,7 +27,7 @@ PAD_X = 14
 _KIND_WORD = {
     "social_post": "Post", "social_comment": "Comment", "thread": "Thread",
     "article": "Article", "feed_entry": "Feed", "image": "Image",
-    "place": "Place", "product": "Product", "video": "Video",
+    "place": "Place", "product": "Product", "video": "Video", "search": "Search",
 }
 
 

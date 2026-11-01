@@ -43,6 +43,27 @@ class BookmarkService:
         self._record_acquisitions(found, method, importer.name.lower().split()[0])
         return ImportResult(importer.name, len(found), inserted)
 
+    def import_profile(self, profile, what: str = "bookmarks") -> ImportResult:
+        """One browser profile's bookmarks or history (see importers.profiles)."""
+        from ..importers.chromium import ChromiumImporter
+        from ..importers.firefox import FirefoxImporter
+        from ..importers.history import ChromiumHistoryImporter, FirefoxHistoryImporter
+        src = profile.bookmarks if what == "bookmarks" else profile.history
+        if src is None:
+            raise FileNotFoundError(f"{profile.label} has no {what} file.")
+        if profile.family == "chromium":
+            imp = ChromiumImporter() if what == "bookmarks" else ChromiumHistoryImporter()
+        else:
+            imp = FirefoxImporter() if what == "bookmarks" else FirefoxHistoryImporter()
+        imp.name = profile.browser + ("" if what == "bookmarks" else " history")
+        found = imp.parse(src)
+        for b in found:
+            b.browser = imp.name
+        inserted = self.storage.import_bookmarks(found)
+        self._record_acquisitions(found, "browser_bookmark" if what == "bookmarks"
+                                  else "browser_history", profile.browser.lower())
+        return ImportResult(profile.label, len(found), inserted)
+
     def import_html(self, path: Path) -> ImportResult:
         found = HTMLImporter().parse(Path(path))
         inserted = self.storage.import_bookmarks(found)

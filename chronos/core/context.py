@@ -126,6 +126,13 @@ class ApplicationContext:
         return self._takeout_service
 
     @property
+    def universal(self):
+        if getattr(self, "_universal_service", None) is None:
+            from ..services.universal_import import UniversalImportService
+            self._universal_service = UniversalImportService(self)
+        return self._universal_service
+
+    @property
     def takeaways(self):
         if getattr(self, "_takeaway_service", None) is None:
             from ..services.takeaway_service import TakeawayService

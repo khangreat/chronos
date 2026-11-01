@@ -77,6 +77,7 @@ class RedditItem:
     timestamp: Optional[int] = None
     link_url: str = ""        # a link post's target page
     thread_url: str = ""      # a comment's thread
+    author: str = ""
 
 
 def _ts(value: str) -> Optional[int]:

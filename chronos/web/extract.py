@@ -127,7 +127,30 @@ def _parse_date(raw: str) -> Optional[int]:
     return None
 
 
-def extract_content(html_text: str, url: str) -> ExtractedPage:
+_ORDER = {"auto": ["trafilatura", "readability", "builtin"], "builtin": ["builtin"],
+          "trafilatura": ["trafilatura", "builtin"], "readability": ["readability", "builtin"]}
+
+
+def available_extractors() -> List[str]:
+    """Extractors this copy of Chronos can actually run."""
+    return ["builtin"] + (["trafilatura"] if _HAS_TRAFILATURA else []) \
+        + (["readability"] if _HAS_READABILITY else [])
+
+
+def _run_extractor(name: str, html_text: str, url: str) -> str:
+    try:
+        if name == "trafilatura" and _HAS_TRAFILATURA:
+            return _collapse(trafilatura.extract(html_text, url=url) or "")
+        if name == "readability" and _HAS_READABILITY:
+            inner = _Parser()
+            inner.feed(_ReadabilityDoc(html_text).summary())
+            return _collapse("".join(inner._chunks))
+    except Exception:
+        pass
+    return ""
+
+
+def extract_content(html_text: str, url: str, prefer: str = "auto") -> ExtractedPage:
     p = _Parser()
     try:
         p.feed(html_text)
@@ -150,23 +173,21 @@ def extract_content(html_text: str, url: str) -> ExtractedPage:
     builtin_text = _collapse("".join(p._article_chunks) or "".join(p._chunks))
 
     text, extractor = builtin_text, "builtin"
-    if _HAS_TRAFILATURA:  # pragma: no cover - optional path
-        try:
-            t = trafilatura.extract(html_text, url=url) or ""
-            if len(t) > len(text):
-                text, extractor = _collapse(t), "trafilatura"
-        except Exception:
-            pass
-    elif _HAS_READABILITY:  # pragma: no cover - optional path
-        try:
-            doc = _ReadabilityDoc(html_text)
-            inner = _Parser()
-            inner.feed(doc.summary())
-            t = _collapse("".join(inner._chunks))
-            if len(t) > len(text):
-                text, extractor = t, "readability"
-        except Exception:
-            pass
+    # A page that marks its article (<article>/<main>) says exactly where the text
+    # is; "best available" trusts that and uses Trafilatura for pages that don't
+    # (it can keep menus when an article is very short).
+    order = _ORDER.get(prefer, _ORDER["auto"])
+    if prefer in ("auto", "", None) and p._article_chunks:
+        order = ["builtin"]
+    for name in order:
+        if name == "builtin":
+            break
+        t = _run_extractor(name, html_text, url)
+        # A real extractor drops menus and footers, so its text is *shorter* than
+        # the built-in one; take it unless it found next to nothing.
+        if t and len(t) >= min(200, max(1, len(builtin_text) // 4)):
+            text, extractor = t, name
+            break
 
     if not excerpt and text:
         excerpt = text[:280].rsplit(" ", 1)[0] + "…" if len(text) > 280 else text

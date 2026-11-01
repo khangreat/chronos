@@ -52,7 +52,8 @@ class ArchiveService:
         with gzip.open(path, "wb") as f:
             f.write(data)
         # also store the readable extraction so the reader/search benefit
-        page = extract_content(html, url or bm.url)
+        page = extract_content(html, url or bm.url,
+                               getattr(self.ctx.config.settings, "prefer_extractor", "auto"))
         self.ctx.content.store_extracted(bookmark_id, page)
         # best-ref: enrich author/site/date/description from page metadata
         try:

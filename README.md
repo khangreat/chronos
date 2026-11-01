@@ -23,6 +23,51 @@ From source: `pip install ./vendor/bridgespec . PySide6`, then `chronos gui`.
 
 ---
 
+# v0.36.0 "Bring everything in"
+
+Everything you've downloaded, from wherever it came, in one go — and your
+browsers found where they really are.
+
+- **Your browsers, really found.** On Windows, Chrome, Edge, Brave and Vivaldi
+  were never found before (Chronos looked outside their "User Data" folder);
+  on Linux the folder names were wrong too. Now every browser and **every
+  profile** is listed in the Import window — "Chrome — Work", "Chrome —
+  Personal", Edge, Brave, Vivaldi, Opera, Firefox (each profile), LibreWolf,
+  Waterfox, Floorp, Zen, Tor — bookmarks and history apiece.
+- **Bring in anything.** One row at the top of the Import window — or drop files
+  onto the Chronos window. Pick a Google Takeout (one .zip, all its parts at
+  once, a .tgz, or the folder they're in), a Reddit / X / Facebook / Mastodon /
+  Bluesky export, a bookmarks.html, a browser history file, a Pocket, Raindrop,
+  Instapaper or Google Saved list, a OneTab list — or a folder with any of
+  these, zipped or not, even zips inside zips. Chronos recognises each file by
+  what's in it (so Takeouts in any language work), keeps what it can, and tells
+  you plainly what it kept and what it left, and why.
+- **Google Takeout, fully.** Chrome bookmarks, reading list and history
+  (`BrowserHistory.json`), Chrome activity and **Google searches** (from My
+  Activity — choose JSON when exporting), and **Saved** lists. YouTube, Calendar,
+  Maps and Keep are prepared for ytman, Command Center and Nawishtar as before.
+  Large Takeouts are read piece by piece — never loaded whole — and a decade of
+  history comes in in seconds.
+- **Reddit, without waiting 30 days.** With the Chronos browser extension
+  (update it from File, Capture from your browser), open reddit.com logged in,
+  right-click: *Chronos: bring in my Reddit saved, upvoted, posts and comments*
+  — the last ~1,000 of each, with their text and authors, read in your own
+  logged-in browser (no Reddit API key — Reddit now requires approval for those).
+  Reddit's data download gives saved items as bare links; *Chronos: fill in
+  titles and text for my Reddit data download* completes them. Or save
+  `reddit.com/user/YOU/saved.json` pages yourself and bring them in.
+- **Cleaner page text.** The Windows build now includes Trafilatura, which
+  leaves out menus, ads and footers. Settings, *Page text extractor* offers only
+  what this copy can run ("Best available" by default) — and the setting now
+  actually decides (before, it was saved but never used).
+- **Faster everywhere.** Items are now found by address with an index
+  (database version 10, indexes only — your data is untouched), so every import
+  is quicker.
+- New item kind: **Search**. The self-test also checks the page extractor and a
+  Takeout import.
+
+---
+
 # v0.35.0 "Windows portable"
 
 - **A portable Windows build.** One folder with `Chronos.exe` (the window) and

@@ -53,7 +53,8 @@ def paragraphs(ctx, bm: Bookmark) -> List[str]:
     if not text.strip() and ctx.archive.has_archive(bm.id):
         from ..web.extract import extract_content
         try:
-            text = extract_content(ctx.archive.read_html(bm.id) or "", bm.url).text or ""
+            text = extract_content(ctx.archive.read_html(bm.id) or "", bm.url,
+                                   getattr(ctx.config.settings, "prefer_extractor", "auto")).text or ""
         except Exception:
             text = ""
     if not text.strip():

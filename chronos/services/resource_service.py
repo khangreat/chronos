@@ -14,7 +14,7 @@ from ..core.models import Bookmark
 
 KINDS = {
     "webpage", "article", "feed_entry", "social_post", "social_comment",
-    "thread", "image", "place", "product", "generic", "video",
+    "thread", "image", "place", "product", "generic", "video", "search",
 }
 RELS = {"reply_to", "quotes", "in_thread", "related", "links_to", "embeds"}
 

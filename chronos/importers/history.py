@@ -73,9 +73,10 @@ class ChromiumHistoryImporter(BrowserImporter):
         return home / ".config"
 
     def default_paths(self) -> List[Path]:
-        base = self._config_root() / self.vendor_subdir
-        candidates = [base / "Default/History", base / "History"]
-        return [c for c in candidates if c.exists()]
+        from .profiles import discover
+        browser = self.name.replace(" history", "")
+        return [p.history for p in discover()
+                if p.family == "chromium" and p.browser == browser and p.history]
 
     def parse(self, source: Path) -> List[Bookmark]:
         work = self._readonly_copy(Path(source))

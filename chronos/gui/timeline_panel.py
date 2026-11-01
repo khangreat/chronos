@@ -29,7 +29,7 @@ _KIND_PLURAL = {
     "social_post": "Posts", "social_comment": "Comments", "thread": "Threads",
     "article": "Articles", "feed_entry": "Feed items", "webpage": "Pages",
     "image": "Images", "place": "Places", "product": "Products", "generic": "Other",
-    "video": "Videos",
+    "video": "Videos", "search": "Searches",
 }
 _FACET = Qt.UserRole + 3
 _VALUE = Qt.UserRole + 4

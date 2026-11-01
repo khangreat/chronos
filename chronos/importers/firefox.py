@@ -43,6 +43,11 @@ class FirefoxImporter(BrowserImporter):
     name = "Firefox"
 
     def default_paths(self) -> List[Path]:
+        from .profiles import discover
+        found = [p.bookmarks for p in discover()
+                 if p.family == "firefox" and p.browser.startswith(self.name) and p.bookmarks]
+        if found:
+            return found
         p = _find_places(_firefox_profile_roots())
         return [p] if p else []
 

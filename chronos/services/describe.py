@@ -11,7 +11,7 @@ _KIND_WORD = {
     "social_post": "Post", "social_comment": "Comment", "thread": "Thread",
     "article": "Article", "feed_entry": "Feed item", "image": "Image",
     "place": "Place", "product": "Product", "webpage": "Page", "generic": "Item",
-    "video": "Video",
+    "video": "Video", "search": "Search",
 }
 
 

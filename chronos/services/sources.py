@@ -12,16 +12,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Optional
 
-from ..importers.base import all_importers
 
 
 @dataclass
 class Source:
     id: str
-    group: str            # browsers | social | packages | files
+    group: str            # anything | browsers | social | packages | files
     name: str
     how: str              # where to get the file, what to pick
-    pick: str             # "file" | "folder" | "either" | "none"
+    pick: str             # "file" | "folder" | "either" | "many" | "none"
     file_filter: str
     run: Callable         # (ctx, path|None) -> str summary
     found_at: Optional[Path] = None   # browsers: detected profile path
@@ -37,39 +36,56 @@ def _summary(r, noun="item") -> str:
     return f"{read}, {r.new_resources:,} new in your archive."
 
 
-def _browser_run(name):
+def _profile_run(profile, what):
     def run(ctx, path):
-        r = ctx.bookmarks.import_from(name, Path(path) if path else None)
+        r = ctx.bookmarks.import_profile(profile, what)
         return f"{r.found:,} found, {r.inserted:,} new in your archive."
     return run
 
 
 def browser_sources() -> List[Source]:
-    """Installed browsers whose bookmarks or history were found on this machine."""
+    """Every browser profile on this computer — bookmarks and history apiece."""
+    from ..importers.profiles import discover
     out = []
-    for imp in all_importers():
-        if imp.name == "HTML":
-            continue
-        try:
-            where = imp.find_source()
-        except Exception:
-            where = None
-        if where is None:
-            continue
-        is_hist = "history" in imp.name.lower()
-        out.append(Source(
-            id=f"browser:{imp.name.lower()}", group="browsers",
-            name=(imp.name.replace(" history", "") +
-                  (" history" if is_hist else " bookmarks")),
-            how=f"Found on this computer: {where}",
-            pick="none", file_filter="", run=_browser_run(imp.name),
-            found_at=where))
+    try:
+        profiles = discover()
+    except Exception:
+        profiles = []
+    for p in profiles:
+        for what, f in (("bookmarks", p.bookmarks), ("history", p.history)):
+            if f is None:
+                continue
+            note = (" Close the browser first if it says the file is busy."
+                    if what == "history" else "")
+            out.append(Source(
+                id=f"browser:{p.browser.lower()}:{p.folder.name}:{what}",
+                group="browsers", name=f"{p.label} {what}",
+                how=f"Found on this computer: {f}.{note}",
+                pick="none", file_filter="", run=_profile_run(p, what),
+                found_at=f))
     return out
+
+
+def _anything(ctx, p) -> str:
+    paths = p if isinstance(p, (list, tuple)) else [p]
+    return ctx.universal.import_paths([Path(x) for x in paths]).text()
+
+
+ANYTHING = Source(
+    "anything", "anything", "Anything you downloaded",
+    "A Google Takeout (one .zip, all its parts, or a .tgz), a Reddit, X, Facebook, "
+    "Mastodon or Bluesky export, a bookmarks.html or browser history file, a Pocket, "
+    "Raindrop, Instapaper or Google Saved list, a OneTab list — or a folder holding "
+    "any of these, zipped or not. Chronos works out what each file is and tells you "
+    "what it kept and what it left.",
+    "many", "Exports and archives (*.zip *.tgz *.gz *.tar *.html *.htm *.json *.csv "
+    "*.txt *.js *.car *.sqlite)", _anything)
 
 
 def file_sources() -> List[Source]:
     pi = lambda ctx: ctx.platform_import  # noqa: E731
     return [
+        ANYTHING,
         Source("html", "files", "Bookmarks HTML file",
                "Any browser's “Export bookmarks to HTML” file. Pocket, "
                "Raindrop and most bookmark tools export this format too.",
@@ -77,19 +93,24 @@ def file_sources() -> List[Source]:
                lambda ctx, p: (lambda r: f"{r.found:,} found, {r.inserted:,} new "
                                "in your archive.")(ctx.bookmarks.import_html(Path(p)))),
         Source("history-file", "files", "Browser history file",
-               "A copied history database: Firefox places.sqlite, or the Chrome / "
-               "Edge / Brave file named History.",
-               "file", "History database (*.sqlite *.db History)",
-               lambda ctx, p: (lambda r: f"{r.found:,} visits read, {r.inserted:,} "
-                               "new in your archive.")(ctx.bookmarks.import_from(
-                                   "firefox history" if str(p).endswith(("sqlite", "db"))
-                                   else "chrome history", Path(p)))),
+               "A copied history file: Firefox places.sqlite, the Chrome / Edge / Brave "
+               "file named History, or BrowserHistory.json from Google Takeout.",
+               "file", "History (*.sqlite *.db *.json History)",
+               lambda ctx, p: ctx.universal.import_paths([Path(p)]).text()),
         Source("reddit", "social", "Reddit",
-               "Request your data in Reddit\u2019s settings (Privacy, request data). "
-               "Pick the .zip or its folder: your posts and comments with their text, "
-               "saved items, and upvotes. A single CSV such as saved_posts.csv works too.",
-               "either", "Reddit export (*.zip *.csv)",
-               lambda ctx, p: _summary(pi(ctx).import_reddit(Path(p)), "item")),
+               "Three ways. Quickest: with the Chronos browser extension (File, Capture "
+               "from your browser) in Chrome, Edge or Brave, open reddit.com logged in, "
+               "right-click the page and choose “Chronos: bring in my Reddit saved, "
+               "upvoted, posts and comments” — the last ~1,000 of each, with their "
+               "text. Everything: request your data in Reddit’s settings (Privacy, "
+               "Request data; it can take up to 30 days) and pick the .zip here; its saved "
+               "items are bare links, so then use “Chronos: fill in titles and text "
+               "for my Reddit data download” on reddit.com. Without the extension: "
+               "logged in, open reddit.com/user/YOUR-NAME/saved.json?limit=100, save the "
+               "page, and bring the .json in with “Anything you downloaded”.",
+               "either", "Reddit export (*.zip *.csv *.json)",
+               lambda ctx, p: (_anything(ctx, p) if str(p).lower().endswith(".json")
+                               else _summary(pi(ctx).import_reddit(Path(p)), "item"))),
         Source("x", "social", "X (Twitter)",
                "Download an archive of your data from X\u2019s settings. Pick the .zip "
                "or its folder for your posts and likes, or tweets.js / like.js from "
@@ -116,14 +137,16 @@ def file_sources() -> List[Source]:
                "file", "Bluesky export (*.car *.json *.zip)",
                lambda ctx, p: _summary(pi(ctx).import_bluesky(Path(p)), "item")),
         Source("takeout", "packages", "Google Takeout",
-               "Export from takeout.google.com and pick the .zip or unzipped folder. "
-               "Chronos keeps your Chrome bookmarks and prepares YouTube, Calendar "
-               "and Keep for ytman, Command Center and Nawishtar.",
-               "either", "Takeout (*.zip)",
+               "Export from takeout.google.com (choose JSON for My Activity) and pick the "
+               ".zip, the .tgz, or the folder holding all its parts. Chronos keeps your "
+               "Chrome bookmarks, reading list and history, Chrome activity, Google "
+               "searches and Saved links, and prepares YouTube, Calendar, Maps and Keep "
+               "for ytman, Command Center and Nawishtar.",
+               "either", "Takeout (*.zip *.tgz *.gz)",
                lambda ctx, p: (lambda r: "Already imported (same package)."
                                if r.already_imported else
-                               f"{r.ingested_bookmarks:,} bookmarks kept. Handed off: "
-                               f"{', '.join(r.handoffs) or 'nothing'}.")(
+                               f"{r.ingested_bookmarks:,} items kept. Prepared for: "
+                               f"{', '.join(r.handoffs) or 'nothing else'}.")(
                                    ctx.takeout.import_takeout(Path(p)))),
         Source("inbox", "packages", "Capture folder",
                "A folder of captures saved by the bookmarklet (files ending in "
@@ -138,6 +161,7 @@ def all_sources() -> List[Source]:
 
 
 GROUP_TITLES = {
+    "anything": "Bring in anything",
     "browsers": "Browsers on this computer",
     "social": "Social accounts",
     "packages": "Account packages and captures",

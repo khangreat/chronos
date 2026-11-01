@@ -275,7 +275,8 @@ class Storage:
 
     # -- provenance: acquisitions + data packages --------------------------- #
     def add_acquisition(self, bookmark_id: int, method: str, source=None,
-                        acquired_at=None, package_id=None, detail=None) -> int:
+                        acquired_at=None, package_id=None, detail=None,
+                        commit: bool = True) -> int:
         import time as _t
         cur = self.conn.execute(
             """INSERT INTO acquisitions
@@ -283,7 +284,8 @@ class Storage:
                VALUES (?,?,?,?,?,?)""",
             (bookmark_id, method, source, acquired_at or int(_t.time()),
              package_id, detail))
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
         return int(cur.lastrowid)
 
     def acquisition_exists(self, bookmark_id: int, method: str, source,

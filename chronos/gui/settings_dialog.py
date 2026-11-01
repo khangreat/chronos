@@ -93,10 +93,16 @@ class SettingsDialog(QDialog):
              ("Larger", "larger")],
             getattr(settings, "text_size", "default"), "Text size")
         form2.addRow("Text size", self.text_size)
+        from ..web.extract import available_extractors
+        have = available_extractors()
+        best = "Trafilatura" if "trafilatura" in have else (
+            "Readability" if "readability" in have else "built in")
         self.extractor = combo(
-            [("Built in", "builtin"), ("Trafilatura (if installed)", "trafilatura"),
-             ("Readability (if installed)", "readability")],
+            [(f"Best available ({best})", "auto"), ("Built in", "builtin")]
+            + [(n.capitalize(), n) for n in have if n != "builtin"],
             settings.prefer_extractor, "Page text extractor")
+        self.extractor.setToolTip("How Chronos finds the article in a saved page. "
+                                  "Trafilatura leaves out menus, ads and footers.")
         form2.addRow("Page text extractor", self.extractor)
         v.addLayout(form2)
 

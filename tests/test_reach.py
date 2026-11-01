@@ -142,7 +142,7 @@ class CatalogueTest(unittest.TestCase):
         from chronos.services.sources import file_sources
         for s in file_sources():
             self.assertGreater(len(s.how), 40, s.id)
-            self.assertIn(s.pick, ("file", "folder", "either", "none"))
+            self.assertIn(s.pick, ("file", "folder", "either", "many", "none"))
 
 
 class AccessibilityTokenTest(unittest.TestCase):

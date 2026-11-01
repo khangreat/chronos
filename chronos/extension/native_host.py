@@ -17,12 +17,27 @@ from .messaging import read_message, write_message
 
 
 def handle(ctx, message: dict) -> dict:
-    """Process one message from the extension. Currently: {type:'capture', ...}."""
+    """Process one message from the extension: capture, ping, reddit_listing, reddit_wanted."""
     if not isinstance(message, dict):
         return {"ok": False, "error": "malformed message"}
     mtype = message.get("type", "capture")
     if mtype == "ping":
         return {"ok": True, "pong": True}
+    if mtype == "reddit_listing":
+        # one page of reddit.com JSON, read in the browser while logged in
+        from ..importers.platform.reddit_listing import parse_listing
+        try:
+            items = parse_listing(message.get("data"), message.get("role", ""))
+            if not items:
+                return {"ok": True, "read": 0, "new": 0}
+            r = ctx.platform_import.import_reddit_items(
+                items, label=f"reddit.com ({message.get('role', 'saved')})")
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "read": r.resources, "new": r.new_resources}
+    if mtype == "reddit_wanted":
+        # items from Reddit's data download that still have no title or text
+        return {"ok": True, "ids": ctx.platform_import.reddit_needing_text()}
     if mtype != "capture":
         return {"ok": False, "error": f"unknown type: {mtype}"}
     from ..services.capture_service import CaptureRecord
