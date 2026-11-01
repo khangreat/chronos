@@ -56,7 +56,7 @@ def _legacy(home: Path) -> Path:
 
 class PortableDirTest(unittest.TestCase):
     def setUp(self):
-        t = Path(tempfile.mkdtemp(prefix="chronos_port_"))
+        t = Path(tempfile.mkdtemp(prefix="chronos_port_")).resolve()  # Windows: 8.3 short names
         self.prog, self.home = t / "Chronos", t / "home"
         self.prog.mkdir(); self.home.mkdir()
 
@@ -112,7 +112,7 @@ class PortableDirTest(unittest.TestCase):
 
 class FirstRunTest(unittest.TestCase):
     def setUp(self):
-        t = Path(tempfile.mkdtemp(prefix="chronos_first_"))
+        t = Path(tempfile.mkdtemp(prefix="chronos_first_")).resolve()
         self.prog, self.home = t / "Chronos", t / "home"
         self.prog.mkdir(); self.home.mkdir()
         (self.prog / "portable.txt").write_text(MARKER_TEXT, encoding="utf-8")
