@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chronos-archive"
+version = "0.35.0"
+description = "Local-first, privacy-first bookmark timeline manager"
+requires-python = ">=3.9"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = ["bridgespec>=1.1"]
+
+[project.optional-dependencies]
+# Installed by the user, never auto-installed by the app.
+gui = ["PySide6>=6.7"]  # GUI needs Python 3.10+; core stays 3.9-compatible
+extract = ["trafilatura", "readability-lxml"]
+feeds = ["feedparser>=6.0"]
+
+[project.scripts]
+chronos = "chronos.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["chronos*"]
+
+[tool.setuptools.package-data]
+chronos = ["gui/locale/*.json", "gui/assets/*.png", "extension/webext/*"]

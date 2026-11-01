@@ -1,0 +1,105 @@
+# Builds the portable Windows zip on every push, and publishes it as a Release
+# when a version tag (v0.35.0, …) is pushed — only if the tests and the built
+# programs' self-tests pass on Windows.
+
+name: Windows portable
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  PYSIDE6_VERSION: "6.11.1"
+  PYINSTALLER_VERSION: "6.22.3"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  test:
+    name: Tests on Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./vendor/bridgespec
+          python -m pip install -e . "PySide6==${{ env.PYSIDE6_VERSION }}" "feedparser>=6.0" ebooklib warcio
+      - name: Run the tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -v
+
+  build:
+    name: Build the portable zip
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ./vendor/bridgespec
+          python -m pip install . "PySide6==${{ env.PYSIDE6_VERSION }}" "feedparser>=6.0" "pyinstaller==${{ env.PYINSTALLER_VERSION }}"
+      - name: Build Chronos.exe and chronos-cli.exe
+        run: pyinstaller packaging/windows/chronos.spec --noconfirm
+      - name: Self-test the command line program
+        shell: pwsh
+        run: |
+          & dist\Chronos\chronos-cli.exe selftest
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Self-test the window program (real Windows display)
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "gui-selftest.txt"
+          $p = Start-Process -FilePath dist\Chronos\Chronos.exe `
+                 -ArgumentList "--selftest", $report -Wait -PassThru
+          if (Test-Path $report) { Get-Content $report -Encoding utf8 } else { "no report written" }
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - name: Make the portable zip
+        shell: pwsh
+        run: |
+          $v = (python -c "import chronos; print(chronos.__version__)").Trim()
+          Copy-Item packaging\windows\portable.txt dist\Chronos\
+          Copy-Item packaging\windows\README-portable.txt "dist\Chronos\Read me.txt"
+          $zip = "Chronos-$v-Windows-portable.zip"
+          Compress-Archive -Path dist\Chronos -DestinationPath $zip
+          "ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "Built $zip ($([math]::Round((Get-Item $zip).Length / 1MB)) MB)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chronos-Windows-portable
+          path: ${{ env.ZIP }}
+          if-no-files-found: error
+
+  release:
+    name: Publish the Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Chronos-Windows-portable
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Chronos ${{ github.ref_name }}
+          body_path: packaging/windows/release-body.md
+          files: Chronos-*-Windows-portable.zip
+          fail_on_unmatched_files: true

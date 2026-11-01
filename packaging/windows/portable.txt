@@ -1,0 +1,7 @@
+This file makes Chronos portable: your archive is kept in the "data" folder
+next to Chronos.exe, so you can move this whole folder or carry it on a USB
+stick. Delete this file to keep the archive in your user folder
+(%USERPROFILE%\.chronos_archive) instead.
+
+To keep the archive somewhere else, put that folder's path on the data= line,
+for example:  data=D:\My archive

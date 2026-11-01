@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Chronos",
+  "version": "0.20.0",
+  "description": "Capture the current post or page to your local Chronos archive.",
+  "permissions": ["activeTab", "scripting", "contextMenus", "nativeMessaging"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Save to Chronos" }
+}

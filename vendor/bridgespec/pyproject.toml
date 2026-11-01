@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bridgespec"
+version = "1.1.0"
+description = "Neutral, versioned interop contract for local-first apps (citations, links, quotes)"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []  # zero third-party deps — adopting it adds no weight
+
+[tool.setuptools.packages.find]
+include = ["bridgespec*"]
