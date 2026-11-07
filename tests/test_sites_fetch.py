@@ -131,7 +131,9 @@ class Site:
 
             do_GET = do_HEAD = _route
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        # all IPv4 loopback addresses, so 127.0.0.1 and 127.0.0.2 are two "sites"
+        # (on Windows "localhost" tries IPv6 first, which would skew timing)
+        self.httpd = ThreadingHTTPServer(("0.0.0.0", 0), H)
         self.port = self.httpd.server_address[1]
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
@@ -168,7 +170,7 @@ class EngineTest(unittest.TestCase):
         self.tmp, self.ctx = _ctx()
         # the stand-in site answers fast; keep the pace short so tests are quick
         SiteRules(self.ctx.storage, True).set("127.0.0.1", "fetch", pace=0.15)
-        SiteRules(self.ctx.storage, True).set("localhost", "fetch", pace=0.15)
+        SiteRules(self.ctx.storage, True).set("127.0.0.2", "fetch", pace=0.15)
 
     def tearDown(self):
         self.site.close(); self.ctx.close()
@@ -220,7 +222,7 @@ class EngineTest(unittest.TestCase):
     def test_two_sites_go_side_by_side(self):
         for i in range(3):
             _add(self.ctx, self.site.url(f"/page{i}"))
-            _add(self.ctx, self.site.url(f"/page{i}", host="localhost"))
+            _add(self.ctx, self.site.url(f"/page{i}", host="127.0.0.2"))
         eng = FetchEngine(self.ctx, workers=4)
         eng.run(eng.plan())
         self.assertEqual(self.site.max_inflight, 2)
@@ -275,8 +277,8 @@ class EngineTest(unittest.TestCase):
         if "trafilatura" not in available_extractors():
             self.skipTest("Trafilatura not installed")
         a = _add(self.ctx, self.site.url("/plain-article"))
-        b = _add(self.ctx, self.site.url("/plain-article", host="localhost"))
-        SiteRules(self.ctx.storage, True).set("localhost", "fetch", pace=0.15,
+        b = _add(self.ctx, self.site.url("/plain-article", host="127.0.0.2"))
+        SiteRules(self.ctx.storage, True).set("127.0.0.2", "fetch", pace=0.15,
                                               extractor="builtin")
         eng = FetchEngine(self.ctx)
         eng.run(eng.plan())
