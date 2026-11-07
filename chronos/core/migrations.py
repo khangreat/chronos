@@ -329,3 +329,47 @@ def _v10(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_acq_lookup ON acquisitions(bookmark_id, method);
         """
     )
+
+
+# --------------------------------------------------------------------------- #
+# v11 — sites. Each item's site (domain) is stored and indexed; your own rules
+# per site; the outcome of the last fetch or link check per item (so "couldn't
+# save: the site refused" is remembered, and runs resume); what kind of file an
+# offline copy is (web page, PDF, plain text). Adds columns and tables only.
+# --------------------------------------------------------------------------- #
+@migration(11)
+def _v11(conn: sqlite3.Connection) -> None:
+    from ..web.sites import domain_of
+    conn.create_function("chronos_domain", 1, lambda u: domain_of(u or ""))
+    conn.executescript(
+        """
+        ALTER TABLE bookmarks ADD COLUMN domain TEXT;
+        UPDATE bookmarks SET domain = chronos_domain(url);
+        CREATE INDEX IF NOT EXISTS idx_bm_domain ON bookmarks(domain);
+
+        ALTER TABLE archives ADD COLUMN mime TEXT NOT NULL DEFAULT 'text/html';
+
+        CREATE TABLE site_rules (
+            domain     TEXT PRIMARY KEY,
+            mode       TEXT NOT NULL,          -- fetch | metadata | login | skip
+            pace       REAL,                   -- seconds between requests
+            extractor  TEXT,                   -- NULL = the Settings choice
+            note       TEXT,
+            updated_at INTEGER
+        );
+
+        CREATE TABLE fetch_log (
+            bookmark_id INTEGER PRIMARY KEY REFERENCES bookmarks(id) ON DELETE CASCADE,
+            status      TEXT NOT NULL,   -- ok | moved | dead | blocked | login | busy |
+                                         -- error | unreachable | timeout | skipped |
+                                         -- not_page | private
+            code        INTEGER,         -- HTTP status, if any
+            reason      TEXT,            -- in plain words
+            final_url   TEXT,            -- where the address led (redirects)
+            kind        TEXT,            -- copy | check | metadata
+            attempted_at INTEGER NOT NULL,
+            attempts    INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE INDEX idx_fetch_status ON fetch_log(status);
+        """
+    )

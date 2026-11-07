@@ -122,8 +122,26 @@ def _checks(work: Path, gui: bool) -> Tuple[List[Tuple[str, Callable[[], str]]],
             raise AssertionError(rep.text())
         return "Takeout zip: bookmarks and history read"
 
+    def sites():
+        from .core.models import Bookmark
+        from .web.archive_service import pdf_text
+        from .web.fetch_queue import FetchEngine
+        ctx = state["ctx"]
+        for u in ("https://x.com/a/status/1", "http://192.168.1.1/admin"):
+            ctx.storage.upsert_bookmark(Bookmark(url=u, title="t", date_added=1, browser="S"))
+        plan = FetchEngine(ctx).plan()
+        if sum(plan.skipped["login"].values()) != 1 or sum(plan.skipped["private"].values()) != 1:
+            raise AssertionError(plan.summary())
+        if getattr(sys, "frozen", False):
+            try:
+                import pypdf  # noqa: F401
+            except ImportError:
+                raise AssertionError("PDF reader (pypdf) not bundled")
+        pdf_text(b"")                                   # never raises
+        return "site rules and your-network protection in place"
+
     checks = [("version", version), ("feeds", feeds), ("page text", extractor), ("database", database), ("search", search),
-              ("exports", exports), ("import anything", anything),
+              ("exports", exports), ("import anything", anything), ("sites", sites),
               ("translations", translations),
               ("browser extension", extension_files)]
 

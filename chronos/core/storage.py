@@ -56,17 +56,18 @@ class Storage:
         if row is not None:
             return int(row["id"]), False
 
+        from ..web.sites import domain_of
         cur = self.conn.execute(
             """INSERT INTO bookmarks
                (browser, title, url, date_added, year, month, folder_name,
                 page_text, is_favorite, notes,
-                page_title, byline, site_name, published_ts, excerpt, kind)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                page_title, byline, site_name, published_ts, excerpt, kind, domain)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 bm.browser, bm.title, bm.url, bm.date_added, bm.year, bm.month,
                 bm.folder_name, bm.page_text, int(bm.is_favorite), bm.notes,
                 bm.page_title, bm.byline, bm.site_name, bm.published_ts, bm.excerpt,
-                bm.kind,
+                bm.kind, domain_of(bm.url),
             ),
         )
         bid = int(cur.lastrowid)
@@ -237,6 +238,37 @@ class Storage:
             (int(is_dead), checked_ts, bookmark_id))
         self.conn.commit()
 
+    # -- sites and fetching ------------------------------------------------- #
+    def bookmarks_by_domain(self, domain: str, limit: int = 1000) -> List[Bookmark]:
+        rows = self.conn.execute(
+            "SELECT * FROM bookmarks WHERE domain=? OR domain LIKE ? "
+            "ORDER BY date_added DESC LIMIT ?", (domain, f"%.{domain}", limit)).fetchall()
+        return self._rows_to_bookmarks(rows)
+
+    def log_fetch(self, bookmark_id: int, status: str, kind: str, code=None,
+                  reason: str = "", final_url=None, commit: bool = True) -> None:
+        import time as _t
+        self.conn.execute(
+            """INSERT INTO fetch_log (bookmark_id, status, code, reason, final_url, kind,
+                                      attempted_at, attempts)
+               VALUES (?,?,?,?,?,?,?,1)
+               ON CONFLICT(bookmark_id) DO UPDATE SET status=excluded.status,
+                 code=excluded.code, reason=excluded.reason, final_url=excluded.final_url,
+                 kind=excluded.kind, attempted_at=excluded.attempted_at,
+                 attempts=fetch_log.attempts + 1""",
+            (bookmark_id, status, code, reason, final_url, kind, int(_t.time())))
+        if commit:
+            self.conn.commit()
+
+    def fetch_status(self, bookmark_id: int):
+        r = self.conn.execute("SELECT * FROM fetch_log WHERE bookmark_id=?",
+                              (bookmark_id,)).fetchone()
+        return dict(r) if r else None
+
+    def fetch_status_counts(self) -> dict:
+        return {r[0]: r[1] for r in self.conn.execute(
+            "SELECT status, COUNT(*) FROM fetch_log GROUP BY status")}
+
     def set_wayback(self, bookmark_id: int, url) -> None:
         self.conn.execute("UPDATE bookmarks SET wayback_url=? WHERE id=?",
                           (url, bookmark_id))
@@ -244,14 +276,14 @@ class Storage:
 
     # -- archives ----------------------------------------------------------- #
     def add_archive(self, bookmark_id: int, path: str, sha1: str,
-                    nbytes: int, archived_at: int) -> int:
+                    nbytes: int, archived_at: int, mime: str = "text/html") -> int:
         self.conn.execute(
-            """INSERT INTO archives(bookmark_id, path, sha1, bytes, archived_at)
-               VALUES (?,?,?,?,?)
+            """INSERT INTO archives(bookmark_id, path, sha1, bytes, archived_at, mime)
+               VALUES (?,?,?,?,?,?)
                ON CONFLICT(bookmark_id) DO UPDATE SET
-                 path=excluded.path, sha1=excluded.sha1,
-                 bytes=excluded.bytes, archived_at=excluded.archived_at""",
-            (bookmark_id, path, sha1, nbytes, archived_at))
+                 path=excluded.path, sha1=excluded.sha1, bytes=excluded.bytes,
+                 archived_at=excluded.archived_at, mime=excluded.mime""",
+            (bookmark_id, path, sha1, nbytes, archived_at, mime))
         self.conn.commit()
         return int(self.conn.execute(
             "SELECT id FROM archives WHERE bookmark_id=?", (bookmark_id,)

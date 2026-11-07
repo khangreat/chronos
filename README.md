@@ -23,6 +23,49 @@ From source: `pip install ./vendor/bridgespec . PySide6`, then `chronos gui`.
 
 ---
 
+# v0.37.0 "Site by site"
+
+Save every page you've kept — politely, site by site — and see your archive by
+site.
+
+- **Fetch everything.** Tools, *Fetch pages and check links…* (Ctrl+Shift+F), or
+  Items, *Save selected pages offline…*. Before starting it shows the plan:
+  how many pages from how many sites, and what it will skip and why (already
+  saved, needs login, your own network, refused recently). Then it works in the
+  background — the window never freezes — with progress, time left, **Pause**
+  and **Stop**. A stopped run continues next time.
+- **Polite to every site.** One page at a time per site, a few seconds apart
+  (several sites in parallel). A site that says "slow down" is slowed down and
+  tried again; "try later" answers are retried twice, then left for next time.
+- **Honest answers.** "Gone" (404, no such site) is told apart from "refused"
+  (403 — often a login wall) and "busy", so links aren't called dead just
+  because a site turned a robot away. Sites that refuse quick link checks are
+  asked again properly. Moved pages record where they went. The reader shows
+  why an item has no copy ("Last try: refused by the site…").
+- **PDFs and plain text** are kept as what they are (before, a PDF was saved as
+  garbled text) — and a PDF's words become searchable.
+- **Rules per site** (Tools, *Sites…*, Ctrl+Shift+S): save pages, titles only,
+  needs login, or never fetch; seconds between pages; which text extractor.
+  Built in: X, Facebook, Instagram, LinkedIn, TikTok and Reddit need login (use
+  the browser extension); YouTube and Vimeo get title and channel from their
+  public oEmbed address (videos belong to ytman); Google searches are skipped;
+  the Internet Archive is given extra patience.
+- **Your network is protected.** Addresses on your own computer or network
+  (localhost, 192.168.…, router and NAS pages) are never fetched, and no web
+  page can redirect Chronos there — unless you allow it in Settings ("Also
+  fetch addresses on my own network").
+- **The Sites window**: every site with items, offline copies (and the
+  percentage), gone, failed, last added and rule; a chart of your biggest
+  sites showing how much of each you have offline; *Show its items*, *Save its
+  pages*, *Check its links*. Your top sites also appear in the library list.
+- **Safer removal**: two items with the same page share one saved file; removing
+  one no longer deletes the other's copy.
+- CLI: `chronos fetch [--check] [--site DOMAIN] [--again]`, `chronos sites`.
+- Database version 11 (adds each item's site, your site rules, and the last
+  fetch result — nothing changed or removed).
+
+---
+
 # v0.36.0 "Bring everything in"
 
 Everything you've downloaded, from wherever it came, in one go — and your

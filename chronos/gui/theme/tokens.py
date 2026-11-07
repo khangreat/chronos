@@ -178,6 +178,8 @@ def _qss(t: Dict[str, str]) -> str:
     #ReaderTitle {{ font-size: 22px; font-weight: 600; color: {t['text']};
                     font-family: {t['serif_font']}; }}
     #Byline {{ color: {t['text_muted']}; font-size: 12px; }}
+    #FetchNote {{ color: {t['text_muted']}; font-size: 12px; padding: 6px 10px;
+                 border-left: 3px solid {t['accent']}; background: {t['surface_alt']}; }}
     #Provenance {{ color: {t['text_muted']}; font-size: 12px; }}
     #Tags {{ color: {t['text_faint']}; font-size: 12px; }}
     #ReaderMeta {{ color: {t['text_muted']}; font-size: 12px; }}
@@ -246,6 +248,15 @@ def _qss(t: Dict[str, str]) -> str:
     QCheckBox::indicator:checked {{ background: {t['accent']}; border-color: {t['accent']};
         image: url("{_check_url(t['bg'])}"); }}
     QCheckBox::indicator:disabled {{ border-color: {t['border']}; background: transparent; }}
+    QRadioButton {{ color: {t['text']}; spacing: 8px; }}
+    QRadioButton::indicator {{ width: 14px; height: 14px; border-radius: 8px;
+                              border: 1px solid {t['text_muted']}; background: {t['surface']}; }}
+    QRadioButton::indicator:hover {{ border-color: {t['accent']}; }}
+    QRadioButton::indicator:checked {{ border-color: {t['accent']};
+        background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,
+                    stop:0 {t['accent']}, stop:0.55 {t['accent']},
+                    stop:0.62 {t['surface']}, stop:1 {t['surface']}); }}
+    QRadioButton::indicator:disabled {{ border-color: {t['border']}; }}
     QCheckBox:disabled {{ color: {t['text_faint']}; }}
     #GroupTitle {{ color: {t['text']}; font-size: 14px; font-weight: 600; }}
     #Outcome {{ color: {t['text']}; font-size: 12px; }}

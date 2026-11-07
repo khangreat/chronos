@@ -70,6 +70,7 @@ class RtlSwitchTest(unittest.TestCase):
 
     def tearDown(self):
         i18n.set_locale("en")
+        self.app.setLayoutDirection(Qt.LeftToRight)     # don't leak RTL into later tests
         self.ctx.close()
 
     def _window(self):

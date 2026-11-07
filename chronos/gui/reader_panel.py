@@ -74,6 +74,13 @@ class ReaderPanel(QWidget):
         # back-compat alias: older code/tests read `meta`
         self.meta = self.byline
 
+        # why the last fetch didn't keep a copy, or what this site needs
+        self.fetch_note = QLabel("")
+        self.fetch_note.setObjectName("FetchNote")
+        self.fetch_note.setWordWrap(True)
+        self.fetch_note.setVisible(False)
+        lay.addWidget(self.fetch_note)
+
         # -- action bar ----------------------------------------------------- #
         bar = QWidget(); bar.setObjectName("ActionBar")
         actions = QHBoxLayout(bar)
@@ -338,6 +345,10 @@ class ReaderPanel(QWidget):
             f"<p style='line-height:165%; margin-bottom:12px'>{escape(p)}</p>"
             for p in (bm.page_text or "").split("\n") if p.strip())
         return paras or self._empty_html("Empty page", "The page had no readable text.")
+
+    def set_fetch_note(self, text: str) -> None:
+        self.fetch_note.setText(text)
+        self.fetch_note.setVisible(bool(text))
 
     def set_provenance(self, entries: List[str]) -> None:
         """entries: plain sentences, oldest first ('Bookmarked in Firefox, 3 Mar 2026')."""

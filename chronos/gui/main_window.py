@@ -212,6 +212,25 @@ class MainWindow(QMainWindow):
                 self.reader.set_provenance([])
             self._populate_related(bid)
             self._populate_videos(bm)
+            self.reader.set_fetch_note(self._fetch_note(bm))
+
+    def _fetch_note(self, bm) -> str:
+        """Why this item has no copy (the last attempt), or what its site needs."""
+        from datetime import datetime
+        from ..web.fetch_queue import STATUS_LABELS
+        from ..web.sites import SiteRules
+        if not (bm.url or "").startswith(("http://", "https://")):
+            return ""
+        log = self.ctx.storage.fetch_status(bm.id)
+        if log and log["status"] not in ("ok", "moved"):
+            when = datetime.fromtimestamp(log["attempted_at"]).strftime("%d %b %Y")
+            return (f"Last try ({when}): {STATUS_LABELS.get(log['status'], log['status'])}. "
+                    + (log["reason"] or ""))
+        if self.ctx.archive.has_archive(bm.id):
+            return ""
+        rule = SiteRules(self.ctx.storage, getattr(
+            self.ctx.config.settings, "allow_private_addresses", False)).for_url(bm.url)
+        return rule.note if rule.mode in ("login", "skip", "private") else ""
 
     def _populate_videos(self, bm) -> None:
         def at(sec):
@@ -372,15 +391,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Takeaway kept.", 4000)
 
     def _archive_page(self, bid: int) -> None:
-        try:
-            r = self.ctx.archive.archive(bid)
-        except Exception as e:
-            self.statusBar().showMessage(
-                f"Could not archive: {e}. Enable networking in Settings.", 5000)
-            return
-        self.statusBar().showMessage(
-            f"Archived offline ({r.bytes // 1024} KB). Content saved locally.", 5000)
-        self._show_bookmark(bid)  # refresh reader with newly-stored content
+        """Save an offline copy in the background (the window never waits)."""
+        self._fetch(bid)
 
     def _open_url(self, url: str) -> None:
         QDesktopServices.openUrl(QUrl(url))
@@ -391,18 +403,19 @@ class MainWindow(QMainWindow):
         self.timeline._reload_library()
 
     def _fetch(self, bid: int) -> None:
-        self.statusBar().showMessage("Fetching page content…")
+        self.statusBar().showMessage("Saving the page\u2026")
         self._worker = FetchWorker(self.ctx.config.app_dir, bid)
         self._worker.done.connect(self._on_fetched)
         self._worker.failed.connect(self._on_fetch_failed)
         self._worker.start()
 
     def _on_fetched(self, bid: int) -> None:
-        self.statusBar().showMessage("Content fetched.", 4000)
+        self.statusBar().showMessage("Saved: the page is kept offline.", 5000)
         self._show_bookmark(bid)
 
     def _on_fetch_failed(self, bid: int, msg: str) -> None:
-        self.statusBar().showMessage(f"Fetch failed: {msg}", 6000)
+        self.statusBar().showMessage(f"Couldn\u2019t save it: {msg}", 8000)
+        self._show_bookmark(bid)
 
     def _refresh_status(self) -> None:
         total = self.ctx.bookmarks.count()
@@ -488,6 +501,7 @@ class MainWindow(QMainWindow):
         act(send, "action.send_reading", lambda: self._selection_action("reading"))
         act(send, "action.send_epub", lambda: self._selection_action("epub"))
         act(send, "action.send_ytman", lambda: self._selection_action("ytman"))
+        act(m, "action.fetch_selected", lambda: self._selection_action("fetch"))
         act(m, "action.save_ia", lambda: self._selection_action("ia"))
         act(m, "action.warc_selected", lambda: self._selection_action("warc"))
         m.addSeparator()
@@ -501,7 +515,9 @@ class MainWindow(QMainWindow):
         m = menu("menu.tools")
         act(m, "action.quotes", self._open_quotes)
         act(m, "action.find_duplicates", self._find_duplicates)
+        act(m, "action.fetch_pages", lambda: self._open_fetch(), "Ctrl+Shift+F")
         act(m, "action.check_links", self._check_links)
+        act(m, "action.sites", self._open_sites, "Ctrl+Shift+S")
         act(m, "action.autotag", self._autotag_all)
         act(m, "action.find_videos", self._find_videos)
         act(m, "action.send_ytman_all", lambda: self._send_to_ytman(None))
@@ -675,6 +691,8 @@ class MainWindow(QMainWindow):
             self._export_warc(ids)
         elif name == "ytman":
             self._send_to_ytman(ids)
+        elif name == "fetch":
+            self._open_fetch(ids=ids)
         elif name == "zotero":
             self._send_to_zotero(ids)
         elif name == "reading":
@@ -730,18 +748,22 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Merged {r.removed} duplicate(s).", 6000)
 
     def _check_links(self) -> None:
-        if not self.ctx.network.is_allowed("link_check"):
-            QMessageBox.information(
-                self, "Check links",
-                "Link checking is off. Turn on networking and \u201cCheck for dead "
-                "links\u201d in Settings (Ctrl+,), then try again.")
-            return
-        wb = self.ctx.network.is_allowed("wayback")
-        self._run_task(
-            lambda c: (lambda r: f"Checked {r.checked:,} links. {r.dead:,} no longer "
-                       f"load" + (f"; {r.archived:,} have an archived copy." if wb
-                                  else "."))(c.links.check_all(use_wayback=wb)),
-            "Checking links\u2026", "Check links")
+        self._open_fetch(mode="check")
+
+    def _open_fetch(self, ids=None, domain=None, mode: str = "copy") -> None:
+        """The Fetch window (non-modal): plan, then save or check, with progress."""
+        from .fetch_dialog import FetchDialog
+        dlg = FetchDialog(self.ctx, self, ids=ids, domain=domain, mode=mode)
+        self._fetch_dialog = dlg
+        dlg.show()
+
+    def _open_sites(self) -> None:
+        from .sites_dialog import SitesDialog
+        dlg = SitesDialog(self.ctx, self)
+        dlg.show_site.connect(lambda d: self._show_library("site", d))
+        dlg.fetch_site.connect(lambda d, m: self._open_fetch(domain=d, mode=m))
+        self._sites_dialog = dlg
+        dlg.show()
 
     def _autotag_all(self) -> None:
         self._run_task(lambda c: f"Tagged {c.tagging.auto_tag_all():,} items.",
@@ -775,6 +797,11 @@ class MainWindow(QMainWindow):
         elif facet == "kind":
             items = self.ctx.resources.by_kind(value, 1000)
             head = _KIND_PLURAL.get(value, value)
+        elif facet == "site":
+            items, head = self.ctx.storage.bookmarks_by_domain(value, 2000), value
+        elif facet == "sites":
+            self._open_sites()
+            return
         else:
             items = self.ctx.provenance.by_source(value, 1000)
             head = tr("library.source", name=_src(value))

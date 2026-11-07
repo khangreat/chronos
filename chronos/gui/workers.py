@@ -29,8 +29,12 @@ class FetchWorker(QThread):
         ctx = None
         try:
             ctx = ApplicationContext.for_dir(self._app_dir)  # own connection
-            ctx.content.fetch_and_store(self._bid)
-            self.done.emit(self._bid)
+            from ..web.fetch_queue import FetchEngine
+            out = FetchEngine(ctx).fetch_one(self._bid)      # follows the site's rule
+            if out.ok:
+                self.done.emit(self._bid)
+            else:
+                self.failed.emit(self._bid, out.reason or out.status)
         except Exception as e:  # NetworkDisabled or fetch/parse error
             self.failed.emit(self._bid, str(e))
         finally:

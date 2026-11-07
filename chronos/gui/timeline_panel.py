@@ -159,6 +159,14 @@ class TimelinePanel(QWidget):
             for src, n in sources:
                 add(_src(src), n, "source", src, head)
             head.setExpanded(True)
+        top = st.conn.execute(
+            "SELECT domain, COUNT(*) n FROM bookmarks WHERE domain IS NOT NULL AND domain!='' "
+            "GROUP BY domain ORDER BY n DESC LIMIT 8").fetchall()
+        if top:
+            head = add("Sites", 0, "", "", bold=True)
+            for r in top:
+                add(r["domain"], r["n"], "site", r["domain"], head)
+            add("All sites\u2026", 0, "sites", "", head)
         has = self.library.topLevelItemCount() > 0
         self.library.setVisible(has)
         self._lib_head.setVisible(has)

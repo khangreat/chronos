@@ -131,7 +131,8 @@ class ThreadedFetchTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="chronos_thr_"))
         # Persist settings with network ON so the worker's fresh context allows fetch.
         cfg = Config(self.tmp / "home")
-        cfg.save_settings(Settings(network_enabled=True, allow_page_fetch=True))
+        cfg.save_settings(Settings(network_enabled=True, allow_page_fetch=True,
+                                    allow_private_addresses=True))  # local test server
         self.ctx = ApplicationContext(cfg)
         self.bid, _ = self.ctx.storage.upsert_bookmark(Bookmark(
             url="", title="placeholder", date_added=1_700_000_000, browser="Firefox"))

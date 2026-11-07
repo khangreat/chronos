@@ -21,7 +21,7 @@ hidden = (collect_submodules("chronos") + collect_submodules("bridgespec")
           + ["PySide6.QtSvg"])                  # the theme draws arrows/ticks as SVG
 # Trafilatura finds the article in a saved page (leaves out menus, ads, footers);
 # its helpers carry word lists and settings as data files.
-for pkg in ("trafilatura", "justext", "courlan", "htmldate"):
+for pkg in ("trafilatura", "justext", "courlan", "htmldate", "pypdf"):
     try:
         datas += collect_data_files(pkg)
         hidden += collect_submodules(pkg)

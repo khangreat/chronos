@@ -80,7 +80,8 @@ class LinkServiceTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="chronos_link_"))
         cfg = Config(self.tmp / "home")
-        cfg.save_settings(Settings(network_enabled=True, allow_link_check=True))
+        cfg.save_settings(Settings(network_enabled=True, allow_link_check=True,
+                                    allow_private_addresses=True))  # local test server
         self.ctx = ApplicationContext(cfg)
 
         class H(http.server.BaseHTTPRequestHandler):
@@ -118,7 +119,8 @@ class LinkServiceTest(unittest.TestCase):
     def test_wayback_fallback_records_snapshot(self):
         # enable wayback and stub the archive lookup (no real archive.org call)
         self.ctx.network.settings = Settings(
-            network_enabled=True, allow_link_check=True, allow_wayback=True)
+            network_enabled=True, allow_link_check=True, allow_wayback=True,
+            allow_private_addresses=True)
         self.ctx.links.fetcher.wayback_url = (
             lambda url: "https://web.archive.org/web/2020/" + url)
         self.ctx.links.check_one(self.gone, use_wayback=True)

@@ -604,6 +604,53 @@ def cmd_epub(ctx: ApplicationContext, args: List[str]) -> int:
     return 0
 
 
+def cmd_fetch(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos fetch [--check] [--site DOMAIN] [--again] [url|id ...]
+    save offline copies (or check links) politely, site by site"""
+    from .web.fetch_queue import FetchEngine
+    mode = "check" if "--check" in args else "copy"
+    again = "--again" in args
+    domain = None
+    rest = []
+    it = iter(args)
+    for a in it:
+        if a == "--site":
+            domain = next(it, None)
+        elif a not in ("--check", "--again"):
+            rest.append(a)
+    eng = FetchEngine(ctx)
+    plan = eng.plan(_ids_from(ctx, rest), mode, domain, again)
+    print(plan.summary())
+    if not plan.jobs:
+        return 0
+    try:
+        eng.require(mode)
+    except Exception as e:
+        print(e); return 1
+
+    def show(done, total, job, out):
+        print(f"[{done}/{total}] {job.domain}: {out.status}"
+              + (f" \u2014 {out.reason}" if out.reason and not out.ok else ""), flush=True)
+    try:
+        r = eng.run(plan, progress=show)
+    except KeyboardInterrupt:
+        print("Stopped. Run it again to continue."); return 1
+    print(r.summary())
+    return 0
+
+
+def cmd_sites(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos sites [N]   your sites: items, offline copies, gone, rule"""
+    from .web.sites import MODE_LABELS, site_stats
+    n = int(args[0]) if args and args[0].isdigit() else 40
+    rows = site_stats(ctx, n)
+    print(f"{'site':40} {'items':>7} {'offline':>8} {'gone':>5}  rule")
+    for s in rows:
+        rule = MODE_LABELS.get(s.rule.mode, s.rule.mode).split(" \u2014")[0]
+        print(f"{s.domain[:40]:40} {s.items:>7,} {s.offline:>8,} {s.dead:>5,}  {rule}")
+    return 0
+
+
 def cmd_selftest(ctx: ApplicationContext, args: List[str]) -> int:
     """chronos selftest [--gui] [report.txt]   check this copy of Chronos works"""
     from .selftest import run_selftest
@@ -623,7 +670,8 @@ COMMANDS = {
     "capture": cmd_capture, "inbox": cmd_inbox, "bookmarklet": cmd_bookmarklet,
     "extension": cmd_extension, "takeout": cmd_takeout, "takeaway": cmd_takeaway,
     "videos": cmd_videos, "ia": cmd_ia, "zotero": cmd_zotero,
-    "reading": cmd_reading, "epub": cmd_epub, "selftest": cmd_selftest, "warc": cmd_warc, "related": cmd_related, "semantic": cmd_semantic, "hybrid": cmd_hybrid,
+    "reading": cmd_reading, "epub": cmd_epub, "selftest": cmd_selftest,
+    "fetch": cmd_fetch, "sites": cmd_sites, "warc": cmd_warc, "related": cmd_related, "semantic": cmd_semantic, "hybrid": cmd_hybrid,
     "provenance": cmd_provenance, "help": cmd_help,
 }
 

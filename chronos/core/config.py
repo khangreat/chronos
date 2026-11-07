@@ -132,6 +132,9 @@ class Settings:
     # Saving pages to the Internet Archive publishes their addresses there, so it
     # has its own switch (plus the master switch). Keys raise the daily limit.
     allow_archive_submit: bool = False
+    # Pages on your own computer or network (a home server, router, NAS) are
+    # never fetched unless you allow it — and the web may never redirect there.
+    allow_private_addresses: bool = False
     ia_keys: str = ""           # "access:secret" from archive.org/account/s3.php
     allow_ai: bool = False
     allow_ai_remote: bool = False

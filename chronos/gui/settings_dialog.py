@@ -60,8 +60,13 @@ class SettingsDialog(QDialog):
         self.ia_keys.setEchoMode(QLineEdit.Password)
         self.ia_keys.setPlaceholderText("Optional keys: access:secret (raises the daily limit)")
         self.ia_keys.setAccessibleName("Internet Archive keys")
+        self.private = QCheckBox("Also fetch addresses on my own network (home server, NAS)")
+        self.private.setToolTip("Off: pages on your computer or local network (localhost, "
+                                "192.168.\u2026, router pages) are never fetched, and no "
+                                "web page can redirect Chronos there.")
+        self.private.setChecked(getattr(settings, "allow_private_addresses", False))
         for w in (self.master, self.page, self.feeds, self.link, self.wb, self.ia,
-                  self.ia_keys):
+                  self.ia_keys, self.private):
             form.addRow(w)
         v.addLayout(form)
 
@@ -192,7 +197,8 @@ class SettingsDialog(QDialog):
                                "The server answered but has no models loaded.")
 
     def _sync_enabled(self, on: bool) -> None:
-        for w in (self.page, self.feeds, self.link, self.wb, self.ia, self.ia_keys):
+        for w in (self.page, self.feeds, self.link, self.wb, self.ia, self.ia_keys,
+                  self.private):
             w.setEnabled(on)
 
     def result_settings(self) -> Settings:
@@ -208,6 +214,7 @@ class SettingsDialog(QDialog):
             language=self.language.currentData(),
             text_size=self.text_size.currentData(),
             allow_archive_submit=self.ia.isChecked(),
+            allow_private_addresses=self.private.isChecked(),
             ia_keys=self.ia_keys.text().strip(),
             allow_ai=self.ai_on.isChecked(),
             allow_ai_remote=self.ai_remote.isChecked(),
