@@ -176,25 +176,25 @@ class ArchiveService:
         shared = self.ctx.storage.conn.execute(
             "SELECT 1 FROM archives WHERE path=? LIMIT 1", (rec["path"],)).fetchone()
         if not shared:
-            try:
-                Path(rec["path"]).unlink(missing_ok=True)
+            try:                       # set aside, so Undo / Restore can bring it back
+                self.ctx.safekeeping.set_aside(Path(rec["path"]))
             except OSError:
                 pass
         return True
 
     def purge_orphans(self) -> int:
-        """Delete archive files on disk that no DB row references. The DB is the
-        truth; derived files that lost their row are safe to remove."""
-        referenced = {a["path"] for a in self.ctx.storage.all_archives()}
-        removed = 0
+        """Move saved files that no item uses to archives/.removed (cleared after
+        30 days) — never deleted outright, so a restore can still use them."""
+        referenced = {Path(a["path"]).name for a in self.ctx.storage.all_archives()}
+        moved = 0
         for f in self.dir.glob("*.gz"):
-            if str(f) not in referenced:
+            if f.name not in referenced:
                 try:
-                    f.unlink()
-                    removed += 1
+                    self.ctx.safekeeping.set_aside(f)
+                    moved += 1
                 except OSError:
                     pass
-        return removed
+        return moved
 
 
 def pdf_text(data: bytes):

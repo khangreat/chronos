@@ -126,6 +126,13 @@ class ApplicationContext:
         return self._takeout_service
 
     @property
+    def safekeeping(self):
+        if getattr(self, "_safekeeping_service", None) is None:
+            from ..services.safekeeping import Safekeeping
+            self._safekeeping_service = Safekeeping(self)
+        return self._safekeeping_service
+
+    @property
     def universal(self):
         if getattr(self, "_universal_service", None) is None:
             from ..services.universal_import import UniversalImportService
@@ -171,7 +178,8 @@ class ApplicationContext:
     def curation(self):
         if getattr(self, "_curation_service", None) is None:
             from ..services.curation_service import CurationService
-            self._curation_service = CurationService(self.storage)
+            self._curation_service = CurationService(
+                self.storage, before_merge=lambda: self.safekeeping.backup("before-merge"))
         return self._curation_service
 
     def provider(self):

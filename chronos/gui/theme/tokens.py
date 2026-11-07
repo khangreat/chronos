@@ -178,6 +178,17 @@ def _qss(t: Dict[str, str]) -> str:
     #ReaderTitle {{ font-size: 22px; font-weight: 600; color: {t['text']};
                     font-family: {t['serif_font']}; }}
     #Byline {{ color: {t['text_muted']}; font-size: 12px; }}
+    QTabWidget::pane {{ border: 1px solid {t['border']}; border-radius: 6px;
+                       background: {t['bg']}; top: -1px; }}
+    QTabWidget > QStackedWidget > QWidget {{ background: {t['bg']}; }}
+    QTabBar::tab {{ background: transparent; color: {t['text_muted']}; padding: 6px 14px;
+                   border: 1px solid transparent; border-bottom: 2px solid transparent; }}
+    QTabBar::tab:hover {{ color: {t['text']}; }}
+    QTabBar::tab:selected {{ color: {t['text']}; border-bottom: 2px solid {t['accent']}; }}
+    QTabBar::tab:focus {{ border: 1px dotted {t['accent']}; }}
+    #StatTile {{ background: {t['surface']}; border: 1px solid {t['border']};
+                border-radius: 8px; }}
+    #StatValue {{ color: {t['text']}; font-size: 20px; font-weight: 600; }}
     #FetchNote {{ color: {t['text_muted']}; font-size: 12px; padding: 6px 10px;
                  border-left: 3px solid {t['accent']}; background: {t['surface_alt']}; }}
     #Provenance {{ color: {t['text_muted']}; font-size: 12px; }}

@@ -140,8 +140,22 @@ def _checks(work: Path, gui: bool) -> Tuple[List[Tuple[str, Callable[[], str]]],
         pdf_text(b"")                                   # never raises
         return "site rules and your-network protection in place"
 
+    def safekeeping():
+        ctx = state["ctx"]
+        n = ctx.storage.count()
+        b = ctx.safekeeping.backup("manual")
+        ctx.removal.remove_many([state["id"]])
+        ctx.safekeeping.restore(b)
+        if ctx.storage.count() != n or ctx.archive.read_html(state["id"]) is None:
+            raise AssertionError("a restore didn't bring everything back")
+        r = ctx.safekeeping.check(deep=True)
+        if not r.ok:
+            raise AssertionError(r.text())
+        return "backup, removal, restore and a thorough health check"
+
     checks = [("version", version), ("feeds", feeds), ("page text", extractor), ("database", database), ("search", search),
               ("exports", exports), ("import anything", anything), ("sites", sites),
+              ("safekeeping", safekeeping),
               ("translations", translations),
               ("browser extension", extension_files)]
 

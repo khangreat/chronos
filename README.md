@@ -23,6 +23,45 @@ From source: `pip install ./vendor/bridgespec . PySide6`, then `chronos gui`.
 
 ---
 
+# v0.38.0 "Safekeeping"
+
+Your archive is backed up, checked and easy to put back — and you can see
+what's in it.
+
+- **Backups, automatically.** Every day Chronos is opened (in the background),
+  and a **safety copy just before anything that removes or rewrites data**:
+  removing items, merging duplicates, restoring, repairing, and upgrading the
+  database to a new version. Old daily copies thin out (the last 7 days, then
+  one a week for 4 weeks); the last 10 safety copies are kept; your own backups
+  are never removed. Backups are made with SQLite's own backup function, so
+  they're consistent even while Chronos runs.
+- **Undo.** Right after removing items, the status bar offers **Undo** for 30
+  seconds. Removed items' saved pages are set aside (archives/.removed), not
+  deleted, for 30 days — so Undo and Restore bring the pages back too.
+- **Restore** any backup (File, *Restore from a backup…*): a copy of how things
+  are now is always made first, so you can change your mind. A damaged backup
+  is refused without touching anything. Older backups are upgraded on restore.
+- **Full backup** to any folder or USB stick: the database, settings and every
+  saved page in one .zip — and it restores into a fresh Chronos too.
+- **Health check** (quick, or thorough: reads and verifies every saved page):
+  the database's own integrity check, links between items, quotes and copies,
+  the search index, saved pages missing or damaged, files nothing uses, your
+  settings, free space. **Repair** rebuilds the search index, brings back
+  set-aside pages, and moves unused files aside — it never deletes, and makes a
+  safety copy first.
+- **Your archive** window (File, Ctrl+Shift+Y): **Overview** — items, sites,
+  kept offline, gone, quotes, takeaways, favourites, tags, with charts per
+  year, the last 12 months, kinds, where things came from and top tags;
+  **Safekeeping** — backups, restore, health; **Storage** — what takes space
+  (database, saved pages, removed files, backups), per site, **Compact**, and
+  clearing removed files.
+- Fix: removing items used to delete saved files outright and "can't be undone".
+- CLI: `chronos backup [--full FOLDER]`, `chronos restore FILE`,
+  `chronos health [--deep] [--repair]`, `chronos usage`, `chronos compact`.
+- The self-test now also backs up, removes, restores and verifies.
+
+---
+
 # v0.37.0 "Site by site"
 
 Save every page you've kept — politely, site by site — and see your archive by

@@ -651,6 +651,59 @@ def cmd_sites(ctx: ApplicationContext, args: List[str]) -> int:
     return 0
 
 
+def cmd_backup(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos backup [--full FOLDER]   back up now (or everything, as a .zip)"""
+    if args[:1] == ["--full"]:
+        if len(args) < 2:
+            print("Usage: chronos backup --full <folder>"); return 2
+        print(f"Full backup written: {ctx.safekeeping.full_backup(args[1])}")
+        return 0
+    print(f"Backed up: {ctx.safekeeping.backup('manual')}")
+    for b in ctx.safekeeping.list()[:8]:
+        print(f"  {b.label}")
+    return 0
+
+
+def cmd_restore(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos restore <backup.db|full.zip>   put the archive back (a safety copy first)"""
+    if not args:
+        print("Usage: chronos restore <backup.db or full .zip>")
+        for b in ctx.safekeeping.list()[:10]:
+            print(f"  {b.path}    {b.label}")
+        return 2
+    try:
+        safety = ctx.safekeeping.restore(args[0])
+    except Exception as e:
+        print(f"Couldn't restore: {e}"); return 1
+    print(f"Restored. How it was before is kept in {safety}")
+    return 0
+
+
+def cmd_health(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos health [--deep] [--repair]   check (and fix) your archive"""
+    r = ctx.safekeeping.check(deep="--deep" in args)
+    print(r.text())
+    if "--repair" in args and r.repairable:
+        print("\n".join(ctx.safekeeping.repair(r)))
+    return 0 if r.ok else 1
+
+
+def cmd_usage(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos usage   what takes space"""
+    from .services.safekeeping import size_text
+    u = ctx.safekeeping.usage()
+    for k in ("database", "journal", "saved_pages", "removed", "backups", "favicons", "free"):
+        print(f"{k.replace('_', ' '):12} {size_text(u[k]):>12}")
+    return 0
+
+
+def cmd_compact(ctx: ApplicationContext, args: List[str]) -> int:
+    """chronos compact   give back space removed items left behind"""
+    from .services.safekeeping import size_text
+    print(f"Compacted: {size_text(ctx.safekeeping.compact())} given back.")
+    return 0
+
+
 def cmd_selftest(ctx: ApplicationContext, args: List[str]) -> int:
     """chronos selftest [--gui] [report.txt]   check this copy of Chronos works"""
     from .selftest import run_selftest
@@ -671,7 +724,8 @@ COMMANDS = {
     "extension": cmd_extension, "takeout": cmd_takeout, "takeaway": cmd_takeaway,
     "videos": cmd_videos, "ia": cmd_ia, "zotero": cmd_zotero,
     "reading": cmd_reading, "epub": cmd_epub, "selftest": cmd_selftest,
-    "fetch": cmd_fetch, "sites": cmd_sites, "warc": cmd_warc, "related": cmd_related, "semantic": cmd_semantic, "hybrid": cmd_hybrid,
+    "fetch": cmd_fetch, "sites": cmd_sites, "backup": cmd_backup, "restore": cmd_restore,
+    "health": cmd_health, "usage": cmd_usage, "compact": cmd_compact, "warc": cmd_warc, "related": cmd_related, "semantic": cmd_semantic, "hybrid": cmd_hybrid,
     "provenance": cmd_provenance, "help": cmd_help,
 }
 

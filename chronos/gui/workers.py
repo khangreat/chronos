@@ -64,3 +64,26 @@ class TaskWorker(QThread):
         finally:
             if ctx is not None:
                 ctx.close()
+
+
+class Job(QThread):
+    """Run `fn(ctx) -> anything` on a worker thread with its own context and
+    hand the result back (used by the Your archive window)."""
+    done = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, app_dir: Path, fn, parent=None):
+        super().__init__(parent)
+        self._app_dir = Path(app_dir)
+        self._fn = fn
+
+    def run(self) -> None:
+        ctx = None
+        try:
+            ctx = ApplicationContext.for_dir(self._app_dir)
+            self.done.emit(self._fn(ctx))
+        except Exception as e:
+            self.failed.emit(str(e) or type(e).__name__)
+        finally:
+            if ctx is not None:
+                ctx.close()

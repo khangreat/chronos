@@ -94,6 +94,9 @@ class MainWindow(QMainWindow):
         self._install_shortcuts()
 
         self._show_recent()
+        # a daily backup, in the background, a few seconds after opening
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(4000, self._daily_backup)
 
     def _install_shortcuts(self) -> None:
         from PySide6.QtGui import QKeySequence, QShortcut
@@ -469,6 +472,10 @@ class MainWindow(QMainWindow):
         act(m, "action.export", self._export, "Ctrl+E")
         act(m, "action.export_warc", lambda: self._export_warc(None))
         m.addSeparator()
+        act(m, "action.your_archive", lambda: self._open_archive("overview"), "Ctrl+Shift+Y")
+        act(m, "action.backup_now", self._backup_now)
+        act(m, "action.restore", lambda: self._open_archive("safekeeping"))
+        m.addSeparator()
         act(m, "action.quit", self.close, "Ctrl+Q")
 
         m = menu("menu.view")
@@ -704,11 +711,13 @@ class MainWindow(QMainWindow):
         elif name == "remove":
             ans = QMessageBox.question(
                 self, "Remove", f"Remove {noun} from your archive? Their quotes, "
-                "takeaways and offline copies are removed too. This can\u2019t be undone.")
+                "takeaways and offline copies are removed too. (You can undo it straight "
+                "after, and a safety copy is kept.)")
             if ans == QMessageBox.Yes:
                 r = self.ctx.removal.remove_many(ids)
                 self._reload_views()
-                self.statusBar().showMessage(f"Removed {r.removed} item(s).", 6000)
+                self._offer_undo(f"Removed {r.removed:,} item{'s' if r.removed != 1 else ''}.",
+                                 "before-remove")
 
     # -- tools -------------------------------------------------------------- #
     def _run_task(self, fn, busy: str, done_title: str) -> None:
@@ -756,6 +765,67 @@ class MainWindow(QMainWindow):
         dlg = FetchDialog(self.ctx, self, ids=ids, domain=domain, mode=mode)
         self._fetch_dialog = dlg
         dlg.show()
+
+    # -- safekeeping ---------------------------------------------------- #
+    def _open_archive(self, tab: str = "overview") -> None:
+        from .archive_dialog import ArchiveDialog
+        dlg = ArchiveDialog(self.ctx, self, tab)
+        dlg.restored.connect(self._after_restore)
+        self._archive_dialog = dlg
+        dlg.show()
+
+    def _backup_now(self) -> None:
+        p = self.ctx.safekeeping.backup("manual")
+        self.statusBar().showMessage(f"Backed up ({p.name}). File, Your archive shows "
+                                     "all backups.", 8000)
+
+    def _daily_backup(self) -> None:
+        from .workers import Job
+        j = Job(self.ctx.config.app_dir, lambda c: c.safekeeping.daily_if_due(), self)
+        j.done.connect(lambda p: p and self.statusBar().showMessage(
+            "Today\u2019s backup is done.", 4000))
+        self._tasks = getattr(self, "_tasks", []) + [j]
+        j.start()
+
+    def _after_restore(self) -> None:
+        self._reload_views()
+        self._refresh_status()
+        self._show_recent()
+
+    def _offer_undo(self, message: str, reason: str) -> None:
+        """A message with an Undo button, for 30 seconds after removing items."""
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QPushButton
+        b = self.ctx.safekeeping.last_safety(reason)
+        old = getattr(self, "_undo_btn", None)
+        if old is not None:
+            self.statusBar().removeWidget(old); old.deleteLater()
+        self.statusBar().showMessage(message, 30000)
+        if b is None:
+            return
+        btn = QPushButton("Undo")
+        btn.setAccessibleName("Undo the removal")
+
+        def undo():
+            self.statusBar().removeWidget(btn); btn.deleteLater()
+            self._undo_btn = None
+            try:
+                self.ctx.safekeeping.restore(b.path)
+            except Exception as e:
+                QMessageBox.warning(self, "Undo", f"Couldn\u2019t undo: {e}")
+                return
+            self._after_restore()
+            self.statusBar().showMessage("Put back. (A copy of how it was is in "
+                                         "Your archive, Safekeeping.)", 8000)
+        btn.clicked.connect(undo)
+        self.statusBar().addPermanentWidget(btn)
+        self._undo_btn = btn
+
+        def expire():
+            if getattr(self, "_undo_btn", None) is btn:
+                self.statusBar().removeWidget(btn); btn.deleteLater()
+                self._undo_btn = None
+        QTimer.singleShot(30000, expire)
 
     def _open_sites(self) -> None:
         from .sites_dialog import SitesDialog

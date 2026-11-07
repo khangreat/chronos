@@ -28,7 +28,12 @@ class RemovalService:
         self.ctx.storage.delete_bookmark(bookmark_id)      # cascades remaining rows
         return had_file
 
-    def remove_many(self, ids: Iterable[int]) -> RemovalResult:
+    def remove_many(self, ids: Iterable[int], safety_copy: bool = True) -> RemovalResult:
+        """Remove items. A safety copy is made first, and their saved pages are
+        set aside, so "Undo" can put everything back."""
+        ids = [i for i in ids if self.ctx.storage.get(i) is not None]
+        if ids and safety_copy:
+            self.ctx.safekeeping.backup("before-remove")
         removed = files = 0
         for bid in list(ids):
             if self.ctx.storage.get(bid) is None:

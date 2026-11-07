@@ -41,8 +41,9 @@ class MergeResult:
 
 
 class CurationService:
-    def __init__(self, storage: Storage):
+    def __init__(self, storage: Storage, before_merge=None):
         self.storage = storage
+        self.before_merge = before_merge      # e.g. a safety copy, before rewriting
 
     def find_duplicate_groups(self) -> List[List[Bookmark]]:
         buckets: Dict[str, List[Bookmark]] = {}
@@ -86,5 +87,7 @@ class CurationService:
 
     def merge_all(self) -> MergeResult:
         groups = self.find_duplicate_groups()
+        if groups and self.before_merge:
+            self.before_merge()                              # merging rewrites items
         removed = sum(self.merge_group(g) for g in groups)
         return MergeResult(groups=len(groups), removed=removed)

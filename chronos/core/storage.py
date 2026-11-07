@@ -22,7 +22,28 @@ class Storage:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
+        self._backup_before_upgrade()
         self.version = apply_migrations(self.conn)
+
+    def _backup_before_upgrade(self) -> None:
+        """An archive made by an older Chronos is copied (consistently, with
+        SQLite's backup function) before its database is upgraded."""
+        try:
+            old = get_db_version(self.conn)
+            if 0 < old < current_target_version():
+                from datetime import datetime
+                from ..services.safekeeping import sqlite_copy
+                stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                dest = self.db_path.parent / "backups" / \
+                    f"chronos-{stamp}-before-upgrade.db"
+                sqlite_copy(self.conn, dest)
+                import json
+                n = self.conn.execute("SELECT COUNT(*) FROM bookmarks").fetchone()[0]
+                dest.with_suffix(".json").write_text(json.dumps(
+                    {"created": int(datetime.now().timestamp()), "reason": "before-upgrade",
+                     "items": n, "version": old}), encoding="utf-8")
+        except Exception:
+            pass                       # never block opening your archive
 
     # -- lifecycle ---------------------------------------------------------- #
     def close(self) -> None:
